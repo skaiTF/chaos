@@ -100,6 +100,24 @@ export class ChaosView extends ItemView {
         new Notice(`Deleted ${file.basename}`);
     }
 
+    async deleteAllArchived() {
+        const files = this.app.vault.getMarkdownFiles();
+        let count = 0;
+        for (const file of files) {
+            const cache = this.app.metadataCache.getFileCache(file);
+            const tags = getAllTags(cache) || [];
+            if (tags.includes("#chaos-element") && tags.includes("#chaos-done")) {
+                await this.app.vault.delete(file);
+                count++;
+            }
+        }
+        if (count > 0) {
+            new Notice(`Deleted ${count} archived elements.`);
+        } else {
+            new Notice("No archived elements to delete.");
+        }
+    }
+
     async render() {
         const container = this.containerEl.children[1];
         container.empty();
@@ -169,7 +187,21 @@ export class ChaosView extends ItemView {
         // Render Archive (Done) List
         if (doneFiles.length > 0) {
             const details = container.createEl("details", { cls: "chaos-archive" });
-            const summary = details.createEl("summary", { text: `Archive (${doneFiles.length})` });
+            const summary = details.createEl("summary");
+
+            const summaryContent = summary.createDiv({ cls: "chaos-archive-summary" });
+            summaryContent.createSpan({ text: `Archive (${doneFiles.length})` });
+
+            const clearBtn = summaryContent.createEl("button", { cls: "chaos-clear-btn" });
+            setIcon(clearBtn, "trash");
+            clearBtn.title = "Delete All Archived";
+            clearBtn.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation(); // Prevent toggling details
+                if (confirm("Are you sure you want to delete all archived elements? This cannot be undone.")) {
+                    this.deleteAllArchived();
+                }
+            };
 
             const archiveList = details.createDiv({ cls: "chaos-list" });
             for (const file of doneFiles) {

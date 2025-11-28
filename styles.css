@@ -129,3 +129,23 @@
     text-decoration: line-through;
     color: var(--text-muted);
 }
+
+.chaos-archive-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.chaos-clear-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.chaos-clear-btn:hover {
+    background-color: var(--color-red);
+    color: var(--text-on-accent);
+    border-color: var(--color-red);
+}
