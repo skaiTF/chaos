@@ -1,17 +1,8 @@
 import { ItemView, WorkspaceLeaf, TFile, Component, App, Menu, setIcon, Notice, getAllTags } from "obsidian";
+import { ChaosType, TYPE_ICONS } from './types';
+import { CreateChaosModal } from './modals';
 
 export const VIEW_TYPE_CHAOS = "chaos-view";
-
-export type ChaosType = "project" | "task" | "reminder" | "event" | "note" | "element";
-
-const TYPE_ICONS: Record<ChaosType, string> = {
-    project: "briefcase",
-    task: "check-circle",
-    reminder: "clock",
-    event: "calendar",
-    note: "sticky-note",
-    element: "zap"
-};
 
 export class ChaosView extends ItemView {
     constructor(leaf: WorkspaceLeaf) {
@@ -112,7 +103,24 @@ export class ChaosView extends ItemView {
     async render() {
         const container = this.containerEl.children[1];
         container.empty();
-        container.createEl("h4", { text: "Chaos Elements" });
+
+        // Header
+        const header = container.createDiv({ cls: "chaos-header" });
+        header.style.display = "flex";
+        header.style.justifyContent = "space-between";
+        header.style.alignItems = "center";
+        header.style.marginBottom = "10px";
+
+        header.createEl("h4", { text: "Chaos Elements", cls: "chaos-title" });
+        // Remove default margin from h4 to align better
+        const title = header.querySelector("h4");
+        if (title) title.style.margin = "0";
+
+        const addButton = header.createEl("button", { cls: "chaos-add-btn" });
+        setIcon(addButton, "plus");
+        addButton.onclick = () => {
+            new CreateChaosModal(this.app).open();
+        };
 
         const files = this.app.vault.getMarkdownFiles();
 

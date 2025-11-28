@@ -1,10 +1,10 @@
 {
     "id": "chaos-plugin",
-    "name": "Chaos Plugin",
+    "name": "Chaos",
     "version": "1.0.0",
     "minAppVersion": "0.15.0",
-    "description": "Create and manage Chaos Elements",
-    "author": "Antigravity",
-    "authorUrl": "https://github.com/google-deepmind",
-    "isDesktopOnly": false
+    "description": "Manage organized chaos in Obsidian.",
+    "author": "skaiTF",
+    "authorUrl": "https://github.com/skaiTF",
+    "isDesktopOnly": true
 }
