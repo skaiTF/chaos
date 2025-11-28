@@ -1,8 +1,131 @@
-/*
+/* Chaos Plugin Styles */
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.chaos-list {
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
 
-If your plugin does not need CSS, delete this file.
+.chaos-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 12px;
+    background-color: var(--background-primary);
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 6px;
+    transition: background-color 0.1s ease;
+}
 
-*/
+.chaos-item:hover {
+    background-color: var(--background-secondary);
+}
+
+.chaos-item-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.chaos-icon-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background-color: var(--background-secondary-alt);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.1s ease;
+    flex-shrink: 0;
+}
+
+.chaos-icon-btn:hover {
+    background-color: var(--interactive-accent);
+    color: var(--text-on-accent);
+}
+
+.chaos-info {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.chaos-name {
+    font-weight: 500;
+    color: var(--text-normal);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+}
+
+.chaos-name:hover {
+    text-decoration: underline;
+}
+
+.chaos-date {
+    font-size: 0.75em;
+    color: var(--text-muted);
+}
+
+.chaos-item-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.chaos-action-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    background-color: var(--background-secondary-alt);
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all 0.1s ease;
+}
+
+.chaos-action-btn:hover {
+    background-color: var(--interactive-success);
+    color: var(--text-on-accent);
+}
+
+.chaos-action-btn.delete:hover {
+    background-color: var(--interactive-error);
+}
+
+/* Archive Styles */
+.chaos-archive {
+    margin-top: 20px;
+    border-top: 1px solid var(--background-modifier-border);
+    padding-top: 10px;
+}
+
+.chaos-archive summary {
+    cursor: pointer;
+    font-weight: 500;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    outline: none;
+}
+
+.chaos-archive summary:hover {
+    color: var(--text-normal);
+}
+
+.chaos-item.done {
+    opacity: 0.7;
+    background-color: var(--background-secondary);
+}
+
+.chaos-item.done .chaos-name {
+    text-decoration: line-through;
+    color: var(--text-muted);
+}

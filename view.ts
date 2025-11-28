@@ -99,103 +99,136 @@ export class ChaosView extends ItemView {
         container.createEl("h4", { text: "Chaos Elements" });
 
         const files = this.app.vault.getMarkdownFiles();
-        const chaosFiles: TFile[] = [];
+
+        const activeFiles: TFile[] = [];
+        const doneFiles: TFile[] = [];
 
         for (const file of files) {
             const cache = this.app.metadataCache.getFileCache(file);
             const tags = getAllTags(cache) || [];
-            if (tags.includes("#chaos-element") && !tags.includes("#chaos-done")) {
-                chaosFiles.push(file);
+            if (tags.includes("#chaos-element")) {
+                if (tags.includes("#chaos-done")) {
+                    doneFiles.push(file);
+                } else {
+                    activeFiles.push(file);
+                }
             }
         }
 
-        // Sort by due date
-        chaosFiles.sort((a, b) => {
+        // Sort both lists by due date
+        const sortFn = (a: TFile, b: TFile) => {
             const cacheA = this.app.metadataCache.getFileCache(a);
             const cacheB = this.app.metadataCache.getFileCache(b);
             const dateA = cacheA?.frontmatter?.dueDate || "9999-99-99";
             const dateB = cacheB?.frontmatter?.dueDate || "9999-99-99";
             return dateA.localeCompare(dateB);
-        });
+        };
 
-        if (chaosFiles.length === 0) {
-            container.createEl("p", { text: "No active chaos elements." });
+        activeFiles.sort(sortFn);
+        doneFiles.sort(sortFn);
+
+        if (activeFiles.length === 0 && doneFiles.length === 0) {
+            container.createEl("p", { text: "No chaos elements found." });
             return;
         }
 
-        const list = container.createDiv({ cls: "chaos-list" });
-
-        for (const file of chaosFiles) {
-            const type = this.getChaosType(file);
-            const cache = this.app.metadataCache.getFileCache(file);
-            const dueDate = cache?.frontmatter?.dueDate;
-
-            const item = list.createDiv({ cls: "chaos-item" });
-
-            // Flex layout for item
-            item.style.display = "flex";
-            item.style.alignItems = "center";
-            item.style.justifyContent = "space-between";
-            item.style.padding = "5px";
-            item.style.borderBottom = "1px solid var(--background-modifier-border)";
-            item.style.cursor = "pointer";
-
-            // Left side: Icon + Name + Date
-            const left = item.createDiv({ cls: "chaos-item-left" });
-            left.style.display = "flex";
-            left.style.alignItems = "center";
-            left.style.gap = "8px";
-            left.style.flexGrow = "1";
-
-            const iconContainer = left.createSpan({ cls: "chaos-icon" });
-            setIcon(iconContainer, TYPE_ICONS[type]);
-
-            const nameContainer = left.createDiv();
-            nameContainer.style.display = "flex";
-            nameContainer.style.flexDirection = "column";
-
-            const name = nameContainer.createSpan({ text: file.basename });
-            name.style.fontWeight = "500";
-
-            if (dueDate) {
-                const dateSpan = nameContainer.createSpan({ text: dueDate });
-                dateSpan.style.fontSize = "0.8em";
-                dateSpan.style.color = "var(--text-muted)";
+        // Render Active List
+        if (activeFiles.length > 0) {
+            const list = container.createDiv({ cls: "chaos-list" });
+            for (const file of activeFiles) {
+                this.renderChaosItem(list, file, false);
             }
+        } else {
+            container.createEl("p", { text: "No active elements." });
+        }
 
-            // Click to open
-            left.onclick = () => {
-                this.app.workspace.getLeaf(false).openFile(file);
-            };
+        // Render Archive (Done) List
+        if (doneFiles.length > 0) {
+            const details = container.createEl("details", { cls: "chaos-archive" });
+            const summary = details.createEl("summary", { text: `Archive (${doneFiles.length})` });
 
-            // Right side: Actions
-            const right = item.createDiv({ cls: "chaos-item-right" });
-            right.style.display = "flex";
-            right.style.gap = "5px";
+            const archiveList = details.createDiv({ cls: "chaos-list" });
+            for (const file of doneFiles) {
+                this.renderChaosItem(archiveList, file, true);
+            }
+        }
+    }
 
+    renderChaosItem(container: HTMLElement, file: TFile, isDone: boolean) {
+        const type = this.getChaosType(file);
+        const cache = this.app.metadataCache.getFileCache(file);
+        const dueDate = cache?.frontmatter?.dueDate;
+
+        const item = container.createDiv({ cls: `chaos-item ${isDone ? "done" : ""}` });
+
+        // Left side: Icon + Info
+        const left = item.createDiv({ cls: "chaos-item-left" });
+
+        // Icon Button (Click to change type)
+        const iconBtn = left.createDiv({ cls: "chaos-icon-btn" });
+        setIcon(iconBtn, TYPE_ICONS[type]);
+        iconBtn.title = "Change Type";
+        iconBtn.onclick = (e) => {
+            e.stopPropagation();
+            const menu = new Menu();
+            menu.addItem((item) => item.setTitle("Project").setIcon("briefcase").onClick(() => this.setChaosType(file, "project")));
+            menu.addItem((item) => item.setTitle("Task").setIcon("check-circle").onClick(() => this.setChaosType(file, "task")));
+            menu.addItem((item) => item.setTitle("Reminder").setIcon("clock").onClick(() => this.setChaosType(file, "reminder")));
+            menu.addItem((item) => item.setTitle("Event").setIcon("calendar").onClick(() => this.setChaosType(file, "event")));
+            menu.addItem((item) => item.setTitle("Note").setIcon("sticky-note").onClick(() => this.setChaosType(file, "note")));
+            menu.showAtMouseEvent(e);
+        };
+
+        // Info (Name + Date) - Click to open
+        const info = left.createDiv({ cls: "chaos-info" });
+        info.onclick = () => {
+            this.app.workspace.getLeaf(false).openFile(file);
+        };
+
+        const name = info.createDiv({ cls: "chaos-name", text: file.basename });
+
+        if (dueDate) {
+            info.createDiv({ cls: "chaos-date", text: dueDate });
+        }
+
+        // Right side: Actions
+        const right = item.createDiv({ cls: "chaos-item-right" });
+
+        if (!isDone) {
             // Done Button
-            const doneBtn = right.createDiv({ cls: "clickable-icon" });
+            const doneBtn = right.createDiv({ cls: "chaos-action-btn" });
             setIcon(doneBtn, "check");
+            doneBtn.title = "Mark as Done";
             doneBtn.onclick = (e) => {
                 e.stopPropagation();
                 this.markDone(file);
             };
-            doneBtn.title = "Mark as Done";
-
-            // Context Menu for Type
-            item.oncontextmenu = (event) => {
-                const menu = new Menu();
-                menu.addItem((item) => item.setTitle("Project").setIcon("briefcase").onClick(() => this.setChaosType(file, "project")));
-                menu.addItem((item) => item.setTitle("Task").setIcon("check-circle").onClick(() => this.setChaosType(file, "task")));
-                menu.addItem((item) => item.setTitle("Reminder").setIcon("clock").onClick(() => this.setChaosType(file, "reminder")));
-                menu.addItem((item) => item.setTitle("Event").setIcon("calendar").onClick(() => this.setChaosType(file, "event")));
-                menu.addItem((item) => item.setTitle("Note").setIcon("sticky-note").onClick(() => this.setChaosType(file, "note")));
-                menu.addSeparator();
-                menu.addItem((item) => item.setTitle("Delete").setIcon("trash").setWarning(true).onClick(() => this.deleteFile(file)));
-
-                menu.showAtMouseEvent(event);
+        } else {
+            // Restore Button
+            const restoreBtn = right.createDiv({ cls: "chaos-action-btn" });
+            setIcon(restoreBtn, "undo");
+            restoreBtn.title = "Restore";
+            restoreBtn.onclick = (e) => {
+                e.stopPropagation();
+                this.restoreElement(file);
             };
         }
+
+        // Context Menu on item (for Delete)
+        item.oncontextmenu = (event) => {
+            const menu = new Menu();
+            menu.addItem((item) => item.setTitle("Delete").setIcon("trash").setWarning(true).onClick(() => this.deleteFile(file)));
+            menu.showAtMouseEvent(event);
+        };
+    }
+
+    async restoreElement(file: TFile) {
+        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+            if (frontmatter.tags && Array.isArray(frontmatter.tags)) {
+                frontmatter.tags = frontmatter.tags.filter((t: string) => t !== "chaos-done");
+            }
+        });
+        new Notice(`Restored ${file.basename}`);
     }
 
     async onClose() {
