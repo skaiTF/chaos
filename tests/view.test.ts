@@ -8,14 +8,15 @@ describe('ChaosView', () => {
 
     beforeEach(() => {
         app = new App();
-        leaf = new WorkspaceLeaf(app);
+        leaf = new (WorkspaceLeaf as any)(app);
         view = new ChaosView(leaf);
         // Mock app property on view since ItemView constructor mock sets it
         (view as any).app = app;
     });
 
     test('getChaosType returns correct type based on tags', () => {
-        const file = new TFile('test');
+        const file = new TFile();
+        (file as any).basename = 'test';
 
         // Mock metadata cache
         (app.metadataCache.getFileCache as jest.Mock).mockReturnValue({
@@ -36,9 +37,9 @@ describe('ChaosView', () => {
     });
 
     test('render filters active and done files correctly', async () => {
-        const activeFile = new TFile('active');
-        const doneFile = new TFile('done');
-        const otherFile = new TFile('other');
+        const activeFile = new TFile(); (activeFile as any).basename = 'active';
+        const doneFile = new TFile(); (doneFile as any).basename = 'done';
+        const otherFile = new TFile(); (otherFile as any).basename = 'other';
 
         (app.vault.getMarkdownFiles as jest.Mock).mockReturnValue([activeFile, doneFile, otherFile]);
 

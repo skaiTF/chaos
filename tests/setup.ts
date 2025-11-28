@@ -1,11 +1,11 @@
 // Polyfill Obsidian DOM methods
-HTMLElement.prototype.empty = function () {
+(HTMLElement.prototype as any).empty = function () {
     while (this.firstChild) {
         this.removeChild(this.firstChild);
     }
 };
 
-HTMLElement.prototype.createEl = function (tag, options) {
+(HTMLElement.prototype as any).createEl = function (tag: string, options?: any) {
     const el = document.createElement(tag);
     if (options) {
         if (options.text) el.textContent = options.text;
@@ -15,10 +15,12 @@ HTMLElement.prototype.createEl = function (tag, options) {
     return el;
 };
 
-HTMLElement.prototype.createDiv = function (options) {
+(HTMLElement.prototype as any).createDiv = function (options?: any) {
     return this.createEl('div', options);
 };
 
-HTMLElement.prototype.createSpan = function (options) {
+(HTMLElement.prototype as any).createSpan = function (options?: any) {
     return this.createEl('span', options);
 };
+
+export { };
