@@ -75,7 +75,23 @@ export class ChaosView extends ItemView {
             if (type !== "element") {
                 frontmatter.tags.push(`chaos-${type}`);
             }
+
+            // Kanban Integration
+            if (type === "project") {
+                frontmatter["kanban-plugin"] = "basic";
+            }
         });
+
+        // If it's a project, check if we need to add default Kanban structure
+        if (type === "project") {
+            const content = await this.app.vault.read(file);
+            // Check if file has any headings (simple check)
+            if (!content.match(/^##\s+/m)) {
+                const kanbanStructure = `\n\n## To Do\n\n## In Progress\n\n## Done\n`;
+                await this.app.vault.modify(file, content + kanbanStructure);
+            }
+        }
+
         new Notice(`Changed type to ${type}`);
     }
 
