@@ -109,6 +109,15 @@ export class ChaosView extends ItemView {
             }
         }
 
+        // Sort by due date
+        chaosFiles.sort((a, b) => {
+            const cacheA = this.app.metadataCache.getFileCache(a);
+            const cacheB = this.app.metadataCache.getFileCache(b);
+            const dateA = cacheA?.frontmatter?.dueDate || "9999-99-99";
+            const dateB = cacheB?.frontmatter?.dueDate || "9999-99-99";
+            return dateA.localeCompare(dateB);
+        });
+
         if (chaosFiles.length === 0) {
             container.createEl("p", { text: "No active chaos elements." });
             return;
@@ -118,6 +127,9 @@ export class ChaosView extends ItemView {
 
         for (const file of chaosFiles) {
             const type = this.getChaosType(file);
+            const cache = this.app.metadataCache.getFileCache(file);
+            const dueDate = cache?.frontmatter?.dueDate;
+
             const item = list.createDiv({ cls: "chaos-item" });
 
             // Flex layout for item
@@ -128,7 +140,7 @@ export class ChaosView extends ItemView {
             item.style.borderBottom = "1px solid var(--background-modifier-border)";
             item.style.cursor = "pointer";
 
-            // Left side: Icon + Name
+            // Left side: Icon + Name + Date
             const left = item.createDiv({ cls: "chaos-item-left" });
             left.style.display = "flex";
             left.style.alignItems = "center";
@@ -138,8 +150,18 @@ export class ChaosView extends ItemView {
             const iconContainer = left.createSpan({ cls: "chaos-icon" });
             setIcon(iconContainer, TYPE_ICONS[type]);
 
-            const name = left.createSpan({ text: file.basename });
+            const nameContainer = left.createDiv();
+            nameContainer.style.display = "flex";
+            nameContainer.style.flexDirection = "column";
+
+            const name = nameContainer.createSpan({ text: file.basename });
             name.style.fontWeight = "500";
+
+            if (dueDate) {
+                const dateSpan = nameContainer.createSpan({ text: dueDate });
+                dateSpan.style.fontSize = "0.8em";
+                dateSpan.style.color = "var(--text-muted)";
+            }
 
             // Click to open
             left.onclick = () => {

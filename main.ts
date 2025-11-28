@@ -75,11 +75,15 @@ class CreateChaosModal extends Modal {
         const input = inputContainer.createEl("input", { type: "text", placeholder: "Element Name" });
         input.style.flexGrow = "1";
 
+        const dateInput = inputContainer.createEl("input", { type: "date" });
+        dateInput.value = new Date().toISOString().split('T')[0]; // Default to today
+
         const button = inputContainer.createEl("button", { text: "Create" });
         button.onclick = async () => {
             const name = input.value;
+            const date = dateInput.value || new Date().toISOString().split('T')[0];
             if (name) {
-                await this.createChaosElement(name);
+                await this.createChaosElement(name, date);
                 this.close();
             } else {
                 new Notice("Please enter a name");
@@ -89,24 +93,27 @@ class CreateChaosModal extends Modal {
         input.addEventListener("keydown", async (e) => {
             if (e.key === "Enter") {
                 const name = input.value;
+                const date = dateInput.value || new Date().toISOString().split('T')[0];
                 if (name) {
-                    await this.createChaosElement(name);
+                    await this.createChaosElement(name, date);
                     this.close();
                 } else {
                     new Notice("Please enter a name");
                 }
             }
         });
+
+        input.focus();
     }
 
-    async createChaosElement(name: string) {
+    async createChaosElement(name: string, date: string) {
         const fileName = `${name}.md`;
-        const fileContent = `---\ntags:\n  - chaos-element\n---\n\n`;
+        const fileContent = `---\ntags:\n  - chaos-element\ndueDate: ${date}\n---\n\n`;
 
         try {
             const file = await this.app.vault.create(fileName, fileContent);
             await this.app.workspace.getLeaf(false).openFile(file);
-            new Notice(`Created chaos element: ${name}`);
+            new Notice(`Created chaos element: ${name} (Due: ${date})`);
         } catch (error) {
             new Notice(`Error creating file: ${error.message}`);
         }
