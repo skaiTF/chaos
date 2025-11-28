@@ -136,7 +136,9 @@ export class ChaosView extends ItemView {
 
         const addButton = header.createEl("button", { cls: "chaos-add-btn" });
         setIcon(addButton, "plus");
-        addButton.onclick = () => {
+        addButton.onclick = (e) => {
+            e.preventDefault();
+            e.stopPropagation();
             new CreateChaosModal(this.app).open();
         };
 
