@@ -2,7 +2,7 @@ import { ItemView, WorkspaceLeaf, TFile, Component, App, Menu, setIcon, Notice, 
 
 export const VIEW_TYPE_CHAOS = "chaos-view";
 
-type ChaosType = "project" | "task" | "reminder" | "event" | "note" | "element";
+export type ChaosType = "project" | "task" | "reminder" | "event" | "note" | "element";
 
 const TYPE_ICONS: Record<ChaosType, string> = {
     project: "briefcase",

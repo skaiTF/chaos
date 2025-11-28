@@ -1,5 +1,5 @@
 import { App, Plugin, PluginSettingTab, Setting, Modal, Notice, WorkspaceLeaf } from 'obsidian';
-import { ChaosView, VIEW_TYPE_CHAOS } from './view';
+import { ChaosView, VIEW_TYPE_CHAOS, ChaosType } from './view';
 
 export default class ChaosPlugin extends Plugin {
     async onload() {
@@ -78,12 +78,19 @@ class CreateChaosModal extends Modal {
         const dateInput = inputContainer.createEl("input", { type: "date" });
         dateInput.value = new Date().toISOString().split('T')[0]; // Default to today
 
+        const typeSelect = inputContainer.createEl("select");
+        const types: ChaosType[] = ["element", "project", "task", "reminder", "event", "note"];
+        types.forEach(type => {
+            typeSelect.createEl("option", { value: type, text: type.charAt(0).toUpperCase() + type.slice(1) });
+        });
+
         const button = inputContainer.createEl("button", { text: "Create" });
         button.onclick = async () => {
             const name = input.value;
             const date = dateInput.value || new Date().toISOString().split('T')[0];
+            const type = typeSelect.value as ChaosType;
             if (name) {
-                await this.createChaosElement(name, date);
+                await this.createChaosElement(name, date, type);
                 this.close();
             } else {
                 new Notice("Please enter a name");
@@ -94,8 +101,9 @@ class CreateChaosModal extends Modal {
             if (e.key === "Enter") {
                 const name = input.value;
                 const date = dateInput.value || new Date().toISOString().split('T')[0];
+                const type = typeSelect.value as ChaosType;
                 if (name) {
-                    await this.createChaosElement(name, date);
+                    await this.createChaosElement(name, date, type);
                     this.close();
                 } else {
                     new Notice("Please enter a name");
@@ -106,14 +114,30 @@ class CreateChaosModal extends Modal {
         input.focus();
     }
 
-    async createChaosElement(name: string, date: string) {
+    async createChaosElement(name: string, date: string, type: ChaosType) {
         const fileName = `${name}.md`;
-        const fileContent = `---\ntags:\n  - chaos-element\ndueDate: ${date}\n---\n\n`;
+        let tags = ["chaos-element"];
+        if (type !== "element") {
+            tags.push(`chaos-${type}`);
+        }
+
+        let frontmatter = `---\ntags:\n${tags.map(t => `  - ${t}`).join('\n')}\ndueDate: ${date}\n`;
+
+        if (type === "project") {
+            frontmatter += "kanban-plugin: basic\n";
+        }
+
+        frontmatter += "---\n\n";
+
+        let content = frontmatter;
+        if (type === "project") {
+            content += "\n\n## To Do\n\n## In Progress\n\n## Done\n";
+        }
 
         try {
-            const file = await this.app.vault.create(fileName, fileContent);
+            const file = await this.app.vault.create(fileName, content);
             await this.app.workspace.getLeaf(false).openFile(file);
-            new Notice(`Created chaos element: ${name} (Due: ${date})`);
+            new Notice(`Created chaos ${type}: ${name} (Due: ${date})`);
         } catch (error) {
             new Notice(`Error creating file: ${error.message}`);
         }
