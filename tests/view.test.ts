@@ -1,5 +1,6 @@
 import { ChaosView } from '../view';
 import { App, TFile, WorkspaceLeaf } from 'obsidian';
+import { DEFAULT_SETTINGS } from '../types';
 
 describe('ChaosView', () => {
     let app: App;
@@ -9,7 +10,7 @@ describe('ChaosView', () => {
     beforeEach(() => {
         app = new App();
         leaf = new (WorkspaceLeaf as any)(app);
-        view = new ChaosView(leaf);
+        view = new ChaosView(leaf, () => DEFAULT_SETTINGS);
         // Mock app property on view since ItemView constructor mock sets it
         (view as any).app = app;
     });

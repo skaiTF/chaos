@@ -1,9 +1,92 @@
 import { App, Modal, Notice } from 'obsidian';
-import { ChaosType } from './types';
+import { ChaosType, ChaosPluginSettings } from './types';
+
+class DuplicateNameModal extends Modal {
+    currentName: string;
+    folder: string;
+    onResult: (value: string | null) => void;
+    hasResolved: boolean;
+
+    constructor(app: App, currentName: string, folder: string, onResult: (value: string | null) => void) {
+        super(app);
+        this.currentName = currentName;
+        this.folder = folder;
+        this.onResult = onResult;
+        this.hasResolved = false;
+    }
+
+    resolve(value: string | null) {
+        if (this.hasResolved) return;
+        this.hasResolved = true;
+        this.onResult(value);
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl("h2", { text: "Note already exists" });
+
+        const location = this.folder ? ` in "${this.folder}"` : "";
+        contentEl.createEl("p", {
+            text: `A note named "${this.currentName}" already exists${location}. Enter a new name or cancel.`
+        });
+
+        const input = contentEl.createEl("input", {
+            type: "text",
+            placeholder: "New note name",
+            value: `${this.currentName} (1)`
+        });
+        input.style.width = "100%";
+
+        const actions = contentEl.createDiv();
+        actions.style.display = "flex";
+        actions.style.justifyContent = "flex-end";
+        actions.style.gap = "8px";
+        actions.style.marginTop = "12px";
+
+        const cancelBtn = actions.createEl("button", { text: "Cancel" });
+        const renameBtn = actions.createEl("button", { text: "Rename" });
+        renameBtn.addClass("mod-cta");
+
+        cancelBtn.onclick = () => {
+            this.resolve(null);
+            this.close();
+        };
+
+        renameBtn.onclick = () => {
+            this.resolve(input.value.trim());
+            this.close();
+        };
+
+        input.addEventListener("keydown", (event) => {
+            if (event.key === "Enter") {
+                event.preventDefault();
+                this.resolve(input.value.trim());
+                this.close();
+            }
+
+            if (event.key === "Escape") {
+                event.preventDefault();
+                this.resolve(null);
+                this.close();
+            }
+        });
+
+        input.focus();
+        input.select();
+    }
+
+    onClose() {
+        this.resolve(null);
+        this.contentEl.empty();
+    }
+}
 
 export class CreateChaosModal extends Modal {
-    constructor(app: App) {
+    settings: ChaosPluginSettings;
+
+    constructor(app: App, settings: ChaosPluginSettings) {
         super(app);
+        this.settings = settings;
     }
 
     onOpen() {
@@ -22,20 +105,21 @@ export class CreateChaosModal extends Modal {
         row2.style.gap = "10px";
 
         const dateInput = row2.createEl("input", { type: "date" });
-        dateInput.value = new Date().toISOString().split('T')[0]; // Default to today
+        dateInput.value = this.getDefaultDate();
 
         const typeSelect = row2.createEl("select");
         const types: ChaosType[] = ["element", "project", "task", "reminder", "event", "note"];
         types.forEach(type => {
             typeSelect.createEl("option", { value: type, text: type.charAt(0).toUpperCase() + type.slice(1) });
         });
+        typeSelect.value = this.settings.defaultType;
 
         const button = inputContainer.createEl("button", { text: "Create" });
         button.style.marginTop = "10px";
 
         button.onclick = async () => {
-            const name = input.value;
-            const date = dateInput.value || new Date().toISOString().split('T')[0];
+            const name = input.value.trim();
+            const date = dateInput.value || this.getDefaultDate();
             const type = typeSelect.value as ChaosType;
             if (name) {
                 await this.createChaosElement(name, date, type);
@@ -47,8 +131,8 @@ export class CreateChaosModal extends Modal {
 
         input.addEventListener("keydown", async (e) => {
             if (e.key === "Enter") {
-                const name = input.value;
-                const date = dateInput.value || new Date().toISOString().split('T')[0];
+                const name = input.value.trim();
+                const date = dateInput.value || this.getDefaultDate();
                 const type = typeSelect.value as ChaosType;
                 if (name) {
                     await this.createChaosElement(name, date, type);
@@ -62,8 +146,74 @@ export class CreateChaosModal extends Modal {
         input.focus();
     }
 
+    getDefaultDate(): string {
+        const date = new Date();
+        date.setDate(date.getDate() + this.settings.defaultDueDateOffsetDays);
+        return date.toISOString().split('T')[0];
+    }
+
+    normalizeFolderPath(folder: string): string {
+        return folder.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
+    }
+
+    stripMarkdownExtension(name: string): string {
+        return name.replace(/\.md$/i, '');
+    }
+
+    getFilePath(fileName: string, folder: string): string {
+        return folder ? `${folder}/${fileName}.md` : `${fileName}.md`;
+    }
+
+    async ensureFolderExists(folder: string) {
+        if (!folder) return;
+
+        const parts = folder.split('/').filter(Boolean);
+        let currentPath = '';
+
+        for (const part of parts) {
+            currentPath = currentPath ? `${currentPath}/${part}` : part;
+            const existing = this.app.vault.getAbstractFileByPath(currentPath);
+            if (!existing) {
+                await this.app.vault.createFolder(currentPath);
+            }
+        }
+    }
+
+    async resolveTargetPath(baseName: string, folder: string): Promise<string | null> {
+        let currentName = this.stripMarkdownExtension(baseName.trim());
+
+        while (true) {
+            if (!currentName) {
+                new Notice("Please enter a valid name");
+                return null;
+            }
+
+            const targetPath = this.getFilePath(currentName, folder);
+            const existing = this.app.vault.getAbstractFileByPath(targetPath);
+
+            if (!existing) {
+                return targetPath;
+            }
+
+            const nextName = await this.promptForDuplicateName(currentName, folder);
+
+            if (nextName === null) {
+                return null;
+            }
+
+            currentName = this.stripMarkdownExtension(nextName.trim());
+        }
+    }
+
+    promptForDuplicateName(currentName: string, folder: string): Promise<string | null> {
+        return new Promise((resolve) => {
+            new DuplicateNameModal(this.app, currentName, folder, resolve).open();
+        });
+    }
+
     async createChaosElement(name: string, date: string, type: ChaosType) {
-        const fileName = `${name}.md`;
+        const folder = this.normalizeFolderPath(this.settings.defaultFolder);
+
         let tags = ["chaos-element"];
         if (type !== "element") {
             tags.push(`chaos-${type}`);
@@ -78,16 +228,28 @@ export class CreateChaosModal extends Modal {
         frontmatter += "---\n\n";
 
         let content = frontmatter;
-        if (type === "project") {
+        if (type === "project" && this.settings.includeProjectHeadings) {
             content += "\n\n## To Do\n\n## In Progress\n\n## Done\n";
         }
 
         try {
-            const file = await this.app.vault.create(fileName, content);
-            await this.app.workspace.getLeaf(false).openFile(file);
+            await this.ensureFolderExists(folder);
+
+            const targetPath = await this.resolveTargetPath(name, folder);
+            if (!targetPath) {
+                return;
+            }
+
+            const file = await this.app.vault.create(targetPath, content);
+
+            if (this.settings.openAfterCreate) {
+                await this.app.workspace.getLeaf(false).openFile(file);
+            }
+
             new Notice(`Created chaos ${type}: ${name} (Due: ${date})`);
-        } catch (error) {
-            new Notice(`Error creating file: ${error.message}`);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : String(error);
+            new Notice(`Error creating file: ${message}`);
         }
     }
 

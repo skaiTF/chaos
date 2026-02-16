@@ -1,12 +1,15 @@
 import { ItemView, WorkspaceLeaf, TFile, Component, App, Menu, setIcon, Notice, getAllTags } from "obsidian";
-import { ChaosType, TYPE_ICONS } from './types';
+import { ChaosType, TYPE_ICONS, ChaosPluginSettings } from './types';
 import { CreateChaosModal } from './modals';
 
 export const VIEW_TYPE_CHAOS = "chaos-view";
 
 export class ChaosView extends ItemView {
-    constructor(leaf: WorkspaceLeaf) {
+    private getSettings: () => ChaosPluginSettings;
+
+    constructor(leaf: WorkspaceLeaf, getSettings: () => ChaosPluginSettings) {
         super(leaf);
+        this.getSettings = getSettings;
     }
 
     getViewType() {
@@ -74,7 +77,7 @@ export class ChaosView extends ItemView {
         });
 
         // If it's a project, check if we need to add default Kanban structure
-        if (type === "project") {
+        if (type === "project" && this.getSettings().includeProjectHeadings) {
             const content = await this.app.vault.read(file);
             // Check if file has any headings (simple check)
             if (!content.match(/^##\s+/m)) {
@@ -139,7 +142,7 @@ export class ChaosView extends ItemView {
         addButton.onclick = (e) => {
             e.preventDefault();
             e.stopPropagation();
-            new CreateChaosModal(this.app).open();
+            new CreateChaosModal(this.app, this.getSettings()).open();
         };
 
         const files = this.app.vault.getMarkdownFiles();
