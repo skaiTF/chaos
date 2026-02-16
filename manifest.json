@@ -1,5 +1,5 @@
 {
-    "id": "chaos-plugin",
+    "id": "chaos",
     "name": "Chaos",
     "version": "1.0.2",
     "minAppVersion": "0.15.0",
