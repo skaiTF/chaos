@@ -3,7 +3,7 @@
     "name": "Chaos",
     "version": "1.0.2",
     "minAppVersion": "0.15.0",
-    "description": "Manage organized chaos in Obsidian.",
+    "description": "Manage organized chaos with markdown notes.",
     "author": "skaiTF",
     "authorUrl": "https://github.com/skaiTF",
     "isDesktopOnly": false
