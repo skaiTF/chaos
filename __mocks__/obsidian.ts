@@ -18,6 +18,7 @@ export class App {
     };
     fileManager = {
         processFrontMatter: jest.fn(),
+        trashFile: jest.fn(),
     };
 }
 

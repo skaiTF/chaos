@@ -7,6 +7,17 @@
     gap: 8px;
 }
 
+.chaos-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.chaos-title {
+    margin: 0;
+}
+
 .chaos-item {
     display: flex;
     align-items: center;
@@ -148,4 +159,30 @@
     background-color: var(--color-red);
     color: var(--text-on-accent);
     border-color: var(--color-red);
+}
+
+.chaos-modal-input {
+    width: 100%;
+}
+
+.chaos-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 12px;
+}
+
+.chaos-create-input-container {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.chaos-create-row {
+    display: flex;
+    gap: 10px;
+}
+
+.chaos-create-button {
+    margin-top: 10px;
 }

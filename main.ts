@@ -1,4 +1,4 @@
-import { App, Plugin, PluginSettingTab, Setting, WorkspaceLeaf } from 'obsidian';
+import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ChaosView, VIEW_TYPE_CHAOS } from './view';
 import { CreateChaosModal } from './modals';
 import { ChaosType, ChaosPluginSettings, DEFAULT_SETTINGS } from './types';
@@ -14,29 +14,29 @@ export default class ChaosPlugin extends Plugin {
             (leaf) => new ChaosView(leaf, () => this.settings)
         );
 
-        this.addRibbonIcon('zap', 'Open Chaos View', (evt: MouseEvent) => {
-            this.activateView();
+        this.addRibbonIcon('zap', 'Open chaos view', () => {
+            void this.activateView();
         });
 
         this.addCommand({
-            id: 'create-chaos-element',
-            name: 'Create Chaos Element',
+            id: 'create-element',
+            name: 'Create element',
             callback: () => {
                 new CreateChaosModal(this.app, this.settings).open();
             }
         });
 
         this.addCommand({
-            id: 'open-chaos-view',
-            name: 'Open Chaos View',
+            id: 'open-view',
+            name: 'Open view',
             callback: () => {
-                this.activateView();
+                void this.activateView();
             }
         });
 
         // Activate view on startup if it was open
         this.app.workspace.onLayoutReady(() => {
-            this.activateView();
+            void this.activateView();
         });
 
         this.addSettingTab(new ChaosSettingTab(this.app, this));
@@ -97,9 +97,9 @@ class ChaosSettingTab extends PluginSettingTab {
                 text
                     .setPlaceholder('e.g. Chaos/Inbox')
                     .setValue(this.plugin.settings.defaultFolder)
-                    .onChange(async (value) => {
+                    .onChange((value) => {
                         this.plugin.settings.defaultFolder = value.trim();
-                        await this.plugin.saveSettings();
+                        void this.plugin.saveSettings();
                     })
             );
 
@@ -115,9 +115,9 @@ class ChaosSettingTab extends PluginSettingTab {
                     .addOption('event', 'Event')
                     .addOption('note', 'Note')
                     .setValue(this.plugin.settings.defaultType)
-                    .onChange(async (value) => {
+                    .onChange((value) => {
                         this.plugin.settings.defaultType = value as ChaosType;
-                        await this.plugin.saveSettings();
+                        void this.plugin.saveSettings();
                     })
             );
 
@@ -128,10 +128,10 @@ class ChaosSettingTab extends PluginSettingTab {
                 text
                     .setPlaceholder('0')
                     .setValue(String(this.plugin.settings.defaultDueDateOffsetDays))
-                    .onChange(async (value) => {
+                    .onChange((value) => {
                         const parsed = Number.parseInt(value, 10);
                         this.plugin.settings.defaultDueDateOffsetDays = Number.isNaN(parsed) ? 0 : parsed;
-                        await this.plugin.saveSettings();
+                        void this.plugin.saveSettings();
                     })
             );
 
@@ -141,9 +141,9 @@ class ChaosSettingTab extends PluginSettingTab {
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.openAfterCreate)
-                    .onChange(async (value) => {
+                    .onChange((value) => {
                         this.plugin.settings.openAfterCreate = value;
-                        await this.plugin.saveSettings();
+                        void this.plugin.saveSettings();
                     })
             );
 
@@ -153,9 +153,9 @@ class ChaosSettingTab extends PluginSettingTab {
             .addToggle((toggle) =>
                 toggle
                     .setValue(this.plugin.settings.includeProjectHeadings)
-                    .onChange(async (value) => {
+                    .onChange((value) => {
                         this.plugin.settings.includeProjectHeadings = value;
-                        await this.plugin.saveSettings();
+                        void this.plugin.saveSettings();
                     })
             );
     }

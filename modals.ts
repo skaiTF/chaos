@@ -1,6 +1,62 @@
 import { App, Modal, Notice } from 'obsidian';
 import { ChaosType, ChaosPluginSettings } from './types';
 
+export function confirmAction(app: App, title: string, message: string, confirmLabel: string): Promise<boolean> {
+    return new Promise((resolve) => {
+        new ConfirmActionModal(app, title, message, confirmLabel, resolve).open();
+    });
+}
+
+class ConfirmActionModal extends Modal {
+    title: string;
+    message: string;
+    confirmLabel: string;
+    onResult: (value: boolean) => void;
+    hasResolved: boolean;
+
+    constructor(app: App, title: string, message: string, confirmLabel: string, onResult: (value: boolean) => void) {
+        super(app);
+        this.title = title;
+        this.message = message;
+        this.confirmLabel = confirmLabel;
+        this.onResult = onResult;
+        this.hasResolved = false;
+    }
+
+    resolve(value: boolean) {
+        if (this.hasResolved) return;
+        this.hasResolved = true;
+        this.onResult(value);
+    }
+
+    onOpen() {
+        const { contentEl } = this;
+        contentEl.createEl("h2", { text: this.title });
+        contentEl.createEl("p", { text: this.message });
+
+        const actions = contentEl.createDiv({ cls: "chaos-modal-actions" });
+
+        const cancelBtn = actions.createEl("button", { text: "Cancel" });
+        const confirmBtn = actions.createEl("button", { text: this.confirmLabel });
+        confirmBtn.addClass("mod-warning");
+
+        cancelBtn.onclick = () => {
+            this.resolve(false);
+            this.close();
+        };
+
+        confirmBtn.onclick = () => {
+            this.resolve(true);
+            this.close();
+        };
+    }
+
+    onClose() {
+        this.resolve(false);
+        this.contentEl.empty();
+    }
+}
+
 class DuplicateNameModal extends Modal {
     currentName: string;
     folder: string;
@@ -35,13 +91,9 @@ class DuplicateNameModal extends Modal {
             placeholder: "New note name",
             value: `${this.currentName} (1)`
         });
-        input.style.width = "100%";
+        input.addClass("chaos-modal-input");
 
-        const actions = contentEl.createDiv();
-        actions.style.display = "flex";
-        actions.style.justifyContent = "flex-end";
-        actions.style.gap = "8px";
-        actions.style.marginTop = "12px";
+        const actions = contentEl.createDiv({ cls: "chaos-modal-actions" });
 
         const cancelBtn = actions.createEl("button", { text: "Cancel" });
         const renameBtn = actions.createEl("button", { text: "Rename" });
@@ -91,18 +143,13 @@ export class CreateChaosModal extends Modal {
 
     onOpen() {
         const { contentEl } = this;
-        contentEl.createEl("h2", { text: "Create Chaos Element" });
+        contentEl.createEl("h2", { text: "Create chaos element" });
 
-        const inputContainer = contentEl.createDiv();
-        inputContainer.style.display = "flex";
-        inputContainer.style.gap = "10px";
-        inputContainer.style.flexDirection = "column";
+        const inputContainer = contentEl.createDiv({ cls: "chaos-create-input-container" });
 
-        const input = inputContainer.createEl("input", { type: "text", placeholder: "Element Name" });
+        const input = inputContainer.createEl("input", { type: "text", placeholder: "Element name" });
 
-        const row2 = inputContainer.createDiv();
-        row2.style.display = "flex";
-        row2.style.gap = "10px";
+        const row2 = inputContainer.createDiv({ cls: "chaos-create-row" });
 
         const dateInput = row2.createEl("input", { type: "date" });
         dateInput.value = this.getDefaultDate();
@@ -115,28 +162,26 @@ export class CreateChaosModal extends Modal {
         typeSelect.value = this.settings.defaultType;
 
         const button = inputContainer.createEl("button", { text: "Create" });
-        button.style.marginTop = "10px";
+        button.addClass("chaos-create-button");
 
-        button.onclick = async () => {
+        button.onclick = () => {
             const name = input.value.trim();
             const date = dateInput.value || this.getDefaultDate();
             const type = typeSelect.value as ChaosType;
             if (name) {
-                await this.createChaosElement(name, date, type);
-                this.close();
+                void this.createChaosElement(name, date, type).then(() => this.close());
             } else {
                 new Notice("Please enter a name");
             }
         };
 
-        input.addEventListener("keydown", async (e) => {
+        input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
                 const name = input.value.trim();
                 const date = dateInput.value || this.getDefaultDate();
                 const type = typeSelect.value as ChaosType;
                 if (name) {
-                    await this.createChaosElement(name, date, type);
-                    this.close();
+                    void this.createChaosElement(name, date, type).then(() => this.close());
                 } else {
                     new Notice("Please enter a name");
                 }

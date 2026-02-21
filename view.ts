@@ -1,6 +1,6 @@
-import { ItemView, WorkspaceLeaf, TFile, Component, App, Menu, setIcon, Notice, getAllTags } from "obsidian";
+import { ItemView, WorkspaceLeaf, TFile, Menu, setIcon, Notice, getAllTags } from "obsidian";
 import { ChaosType, TYPE_ICONS, ChaosPluginSettings } from './types';
-import { CreateChaosModal } from './modals';
+import { CreateChaosModal, confirmAction } from './modals';
 
 export const VIEW_TYPE_CHAOS = "chaos-view";
 
@@ -21,10 +21,10 @@ export class ChaosView extends ItemView {
     }
 
     getDisplayText() {
-        return "Chaos Elements";
+        return "Chaos elements";
     }
 
-    async onOpen() {
+    onOpen() {
         this.render();
         this.registerEvent(
             this.app.metadataCache.on("changed", this.onMetadataChange.bind(this))
@@ -99,7 +99,7 @@ export class ChaosView extends ItemView {
     }
 
     async deleteFile(file: TFile) {
-        await this.app.vault.delete(file);
+        await this.app.fileManager.trashFile(file);
         new Notice(`Deleted ${file.basename}`);
     }
 
@@ -110,7 +110,7 @@ export class ChaosView extends ItemView {
             const cache = this.app.metadataCache.getFileCache(file);
             const tags = getAllTags(cache) || [];
             if (tags.includes("#chaos-element") && tags.includes("#chaos-done")) {
-                await this.app.vault.delete(file);
+                await this.app.fileManager.trashFile(file);
                 count++;
             }
         }
@@ -121,21 +121,14 @@ export class ChaosView extends ItemView {
         }
     }
 
-    async render() {
+    render() {
         const container = this.containerEl.children[1];
         container.empty();
 
         // Header
         const header = container.createDiv({ cls: "chaos-header" });
-        header.style.display = "flex";
-        header.style.justifyContent = "space-between";
-        header.style.alignItems = "center";
-        header.style.marginBottom = "10px";
 
-        header.createEl("h4", { text: "Chaos Elements", cls: "chaos-title" });
-        // Remove default margin from h4 to align better
-        const title = header.querySelector("h4");
-        if (title) title.style.margin = "0";
+        header.createEl("h4", { text: "Chaos elements", cls: "chaos-title" });
 
         const addButton = header.createEl("button", { cls: "chaos-add-btn" });
         setIcon(addButton, "plus");
@@ -199,13 +192,11 @@ export class ChaosView extends ItemView {
 
             const clearBtn = summaryContent.createEl("button", { cls: "chaos-clear-btn" });
             setIcon(clearBtn, "trash");
-            clearBtn.title = "Delete All Archived";
+            clearBtn.title = "Delete all archived";
             clearBtn.onclick = (e) => {
                 e.preventDefault();
                 e.stopPropagation(); // Prevent toggling details
-                if (confirm("Are you sure you want to delete all archived elements? This cannot be undone.")) {
-                    this.deleteAllArchived();
-                }
+                void this.confirmAndDeleteArchived();
             };
 
             const archiveList = details.createDiv({ cls: "chaos-list" });
@@ -228,25 +219,25 @@ export class ChaosView extends ItemView {
         // Icon Button (Click to change type)
         const iconBtn = left.createDiv({ cls: "chaos-icon-btn" });
         setIcon(iconBtn, TYPE_ICONS[type]);
-        iconBtn.title = "Change Type";
+        iconBtn.title = "Change type";
         iconBtn.onclick = (e) => {
             e.stopPropagation();
             const menu = new Menu();
-            menu.addItem((item) => item.setTitle("Project").setIcon("briefcase").onClick(() => this.setChaosType(file, "project")));
-            menu.addItem((item) => item.setTitle("Task").setIcon("check-circle").onClick(() => this.setChaosType(file, "task")));
-            menu.addItem((item) => item.setTitle("Reminder").setIcon("clock").onClick(() => this.setChaosType(file, "reminder")));
-            menu.addItem((item) => item.setTitle("Event").setIcon("calendar").onClick(() => this.setChaosType(file, "event")));
-            menu.addItem((item) => item.setTitle("Note").setIcon("sticky-note").onClick(() => this.setChaosType(file, "note")));
+            menu.addItem((item) => item.setTitle("Project").setIcon("briefcase").onClick(() => { void this.setChaosType(file, "project"); }));
+            menu.addItem((item) => item.setTitle("Task").setIcon("check-circle").onClick(() => { void this.setChaosType(file, "task"); }));
+            menu.addItem((item) => item.setTitle("Reminder").setIcon("clock").onClick(() => { void this.setChaosType(file, "reminder"); }));
+            menu.addItem((item) => item.setTitle("Event").setIcon("calendar").onClick(() => { void this.setChaosType(file, "event"); }));
+            menu.addItem((item) => item.setTitle("Note").setIcon("sticky-note").onClick(() => { void this.setChaosType(file, "note"); }));
             menu.showAtMouseEvent(e);
         };
 
         // Info (Name + Date) - Click to open
         const info = left.createDiv({ cls: "chaos-info" });
         info.onclick = () => {
-            this.app.workspace.getLeaf(false).openFile(file);
+            void this.app.workspace.getLeaf(false).openFile(file);
         };
 
-        const name = info.createDiv({ cls: "chaos-name", text: file.basename });
+        info.createDiv({ cls: "chaos-name", text: file.basename });
 
         if (dueDate) {
             info.createDiv({ cls: "chaos-date", text: dueDate });
@@ -259,10 +250,10 @@ export class ChaosView extends ItemView {
             // Done Button
             const doneBtn = right.createDiv({ cls: "chaos-action-btn" });
             setIcon(doneBtn, "check");
-            doneBtn.title = "Mark as Done";
+            doneBtn.title = "Mark as done";
             doneBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.markDone(file);
+                void this.markDone(file);
             };
         } else {
             // Restore Button
@@ -271,16 +262,29 @@ export class ChaosView extends ItemView {
             restoreBtn.title = "Restore";
             restoreBtn.onclick = (e) => {
                 e.stopPropagation();
-                this.restoreElement(file);
+                void this.restoreElement(file);
             };
         }
 
         // Context Menu on item (for Delete)
         item.oncontextmenu = (event) => {
             const menu = new Menu();
-            menu.addItem((item) => item.setTitle("Delete").setIcon("trash").setWarning(true).onClick(() => this.deleteFile(file)));
+            menu.addItem((item) => item.setTitle("Delete").setIcon("trash").setWarning(true).onClick(() => { void this.deleteFile(file); }));
             menu.showAtMouseEvent(event);
         };
+    }
+
+    async confirmAndDeleteArchived() {
+        const confirmed = await confirmAction(
+            this.app,
+            "Delete archived elements",
+            "Are you sure you want to delete all archived elements? This cannot be undone.",
+            "Delete"
+        );
+
+        if (confirmed) {
+            await this.deleteAllArchived();
+        }
     }
 
     async restoreElement(file: TFile) {
@@ -292,7 +296,7 @@ export class ChaosView extends ItemView {
         new Notice(`Restored ${file.basename}`);
     }
 
-    async onClose() {
+    onClose() {
         // Nothing to clean up.
     }
 }
