@@ -1,7 +1,7 @@
 import { App, Plugin, PluginSettingTab, Setting } from 'obsidian';
 import { ChaosView, VIEW_TYPE_CHAOS } from './view';
 import { CreateChaosModal } from './modals';
-import { ChaosType, ChaosPluginSettings, DEFAULT_SETTINGS } from './types';
+import { ChaosType, ChaosPluginSettings, DEFAULT_SETTINGS, ChaosFolderType } from './types';
 
 export default class ChaosPlugin extends Plugin {
     settings!: ChaosPluginSettings;
@@ -65,7 +65,15 @@ export default class ChaosPlugin extends Plugin {
     }
 
     async loadSettings() {
-        this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+        const loadedSettings = await this.loadData();
+        this.settings = {
+            ...DEFAULT_SETTINGS,
+            ...loadedSettings,
+            defaultFoldersByType: {
+                ...DEFAULT_SETTINGS.defaultFoldersByType,
+                ...(loadedSettings?.defaultFoldersByType ?? {}),
+            },
+        };
     }
 
     async saveSettings() {
@@ -92,7 +100,7 @@ class ChaosSettingTab extends PluginSettingTab {
 
         new Setting(containerEl)
             .setName('Default folder')
-            .setDesc('Vault-relative folder for new chaos notes. Leave empty to create in vault root.')
+            .setDesc('Fallback folder for new chaos notes. Used when no type-specific folder is set. Leave empty to create in vault root.')
             .addText((text) =>
                 text
                     .setPlaceholder('e.g. Chaos/Inbox')
@@ -102,6 +110,29 @@ class ChaosSettingTab extends PluginSettingTab {
                         void this.plugin.saveSettings();
                     })
             );
+
+        const folderSettings: Array<{ type: ChaosFolderType; label: string }> = [
+            { type: 'project', label: 'Project folder' },
+            { type: 'task', label: 'Task folder' },
+            { type: 'reminder', label: 'Reminder folder' },
+            { type: 'event', label: 'Event folder' },
+            { type: 'note', label: 'Note folder' },
+        ];
+
+        folderSettings.forEach(({ type, label }) => {
+            new Setting(containerEl)
+                .setName(label)
+                .setDesc(`Vault-relative folder for ${type} notes. Leave empty to use default folder.`)
+                .addText((text) =>
+                    text
+                        .setPlaceholder('e.g. Chaos/Projects')
+                        .setValue(this.plugin.settings.defaultFoldersByType[type])
+                        .onChange((value) => {
+                            this.plugin.settings.defaultFoldersByType[type] = value.trim();
+                            void this.plugin.saveSettings();
+                        })
+                );
+        });
 
         new Setting(containerEl)
             .setName('Default type')

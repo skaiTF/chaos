@@ -201,6 +201,19 @@ export class CreateChaosModal extends Modal {
         return folder.trim().replace(/\\/g, '/').replace(/^\/+|\/+$/g, '');
     }
 
+    resolveFolderForType(type: ChaosType): string {
+        if (type === "element") {
+            return this.settings.defaultFolder;
+        }
+
+        const folderForType = this.settings.defaultFoldersByType[type];
+        if (folderForType && folderForType.trim()) {
+            return folderForType;
+        }
+
+        return this.settings.defaultFolder;
+    }
+
     stripMarkdownExtension(name: string): string {
         return name.replace(/\.md$/i, '');
     }
@@ -257,7 +270,7 @@ export class CreateChaosModal extends Modal {
     }
 
     async createChaosElement(name: string, date: string, type: ChaosType) {
-        const folder = this.normalizeFolderPath(this.settings.defaultFolder);
+        const folder = this.normalizeFolderPath(this.resolveFolderForType(type));
 
         let tags = ["chaos-element"];
         if (type !== "element") {

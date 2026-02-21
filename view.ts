@@ -24,36 +24,38 @@ export class ChaosView extends ItemView {
         return "Chaos elements";
     }
 
-    onOpen() {
+    onOpen(): Promise<void> {
         this.render();
         this.registerEvent(
-            this.app.metadataCache.on("changed", this.onMetadataChange.bind(this))
+            this.app.metadataCache.on("changed", () => this.onMetadataChange())
         );
         this.registerEvent(
-            this.app.vault.on("create", this.onFileCreate.bind(this))
+            this.app.vault.on("create", () => this.onFileCreate())
         );
         this.registerEvent(
-            this.app.vault.on("delete", this.onFileDelete.bind(this))
+            this.app.vault.on("delete", () => this.onFileDelete())
         );
         this.registerEvent(
-            this.app.vault.on("rename", this.onFileRename.bind(this))
+            this.app.vault.on("rename", () => this.onFileRename())
         );
+
+        return Promise.resolve();
     }
 
-    onMetadataChange(file: TFile) { this.render(); }
-    onFileCreate(file: TFile) { this.render(); }
-    onFileDelete(file: TFile) { this.render(); }
-    onFileRename(file: TFile) { this.render(); }
+    onMetadataChange() { this.render(); }
+    onFileCreate() { this.render(); }
+    onFileDelete() { this.render(); }
+    onFileRename() { this.render(); }
 
     getChaosType(file: TFile): ChaosType {
         const cache = this.app.metadataCache.getFileCache(file);
-        const tags = getAllTags(cache) || [];
+        const tags = (cache ? getAllTags(cache) : []) || [];
 
-        if (tags.includes("#chaos-project")) return "project";
-        if (tags.includes("#chaos-task")) return "task";
-        if (tags.includes("#chaos-reminder")) return "reminder";
-        if (tags.includes("#chaos-event")) return "event";
-        if (tags.includes("#chaos-note")) return "note";
+        if (tags.indexOf("#chaos-project") !== -1) return "project";
+        if (tags.indexOf("#chaos-task") !== -1) return "task";
+        if (tags.indexOf("#chaos-reminder") !== -1) return "reminder";
+        if (tags.indexOf("#chaos-event") !== -1) return "event";
+        if (tags.indexOf("#chaos-note") !== -1) return "note";
 
         return "element";
     }
@@ -64,7 +66,7 @@ export class ChaosView extends ItemView {
             if (!Array.isArray(frontmatter.tags)) frontmatter.tags = [frontmatter.tags];
 
             const typeTags = ["chaos-project", "chaos-task", "chaos-reminder", "chaos-event", "chaos-note"];
-            frontmatter.tags = frontmatter.tags.filter((t: string) => !typeTags.includes(t) && !typeTags.includes(t.replace("#", "")));
+            frontmatter.tags = frontmatter.tags.filter((t: string) => typeTags.indexOf(t) === -1 && typeTags.indexOf(t.replace("#", "")) === -1);
 
             if (type !== "element") {
                 frontmatter.tags.push(`chaos-${type}`);
@@ -108,8 +110,8 @@ export class ChaosView extends ItemView {
         let count = 0;
         for (const file of files) {
             const cache = this.app.metadataCache.getFileCache(file);
-            const tags = getAllTags(cache) || [];
-            if (tags.includes("#chaos-element") && tags.includes("#chaos-done")) {
+            const tags = (cache ? getAllTags(cache) : []) || [];
+            if (tags.indexOf("#chaos-element") !== -1 && tags.indexOf("#chaos-done") !== -1) {
                 await this.app.fileManager.trashFile(file);
                 count++;
             }
@@ -145,9 +147,9 @@ export class ChaosView extends ItemView {
 
         for (const file of files) {
             const cache = this.app.metadataCache.getFileCache(file);
-            const tags = getAllTags(cache) || [];
-            if (tags.includes("#chaos-element")) {
-                if (tags.includes("#chaos-done")) {
+            const tags = (cache ? getAllTags(cache) : []) || [];
+            if (tags.indexOf("#chaos-element") !== -1) {
+                if (tags.indexOf("#chaos-done") !== -1) {
                     doneFiles.push(file);
                 } else {
                     activeFiles.push(file);
@@ -296,7 +298,8 @@ export class ChaosView extends ItemView {
         new Notice(`Restored ${file.basename}`);
     }
 
-    onClose() {
+    onClose(): Promise<void> {
         // Nothing to clean up.
+        return Promise.resolve();
     }
 }
