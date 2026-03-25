@@ -2,8 +2,12 @@ export class App {
     vault = {
         getMarkdownFiles: jest.fn(),
         create: jest.fn(),
+        createFolder: jest.fn(),
         delete: jest.fn(),
+        getAbstractFileByPath: jest.fn(),
+        modify: jest.fn(),
         on: jest.fn(),
+        read: jest.fn(),
     };
     metadataCache = {
         getFileCache: jest.fn(),
@@ -61,9 +65,7 @@ export class Modal {
     close() { }
 }
 
-export class Notice {
-    constructor(message: string) { }
-}
+export const Notice = jest.fn().mockImplementation((_message: string) => ({}));
 
 export class Menu {
     addItem(callback: any) { return this; }

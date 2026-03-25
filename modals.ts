@@ -1,6 +1,18 @@
 import { App, Modal, Notice } from 'obsidian';
 import { ChaosType, ChaosPluginSettings } from './types';
 
+function formatErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === 'string') return error;
+
+    try {
+        const serialized = JSON.stringify(error);
+        return serialized && serialized !== '{}' ? serialized : 'Unknown error';
+    } catch {
+        return 'Unknown error';
+    }
+}
+
 export function confirmAction(app: App, title: string, message: string, confirmLabel: string): Promise<boolean> {
     return new Promise((resolve) => {
         new ConfirmActionModal(app, title, message, confirmLabel, resolve).open();
@@ -165,26 +177,12 @@ export class CreateChaosModal extends Modal {
         button.addClass("chaos-create-button");
 
         button.onclick = () => {
-            const name = input.value.trim();
-            const date = dateInput.value || this.getDefaultDate();
-            const type = typeSelect.value as ChaosType;
-            if (name) {
-                void this.createChaosElement(name, date, type).then(() => this.close());
-            } else {
-                new Notice("Please enter a name");
-            }
+            void this.handleCreateSubmit(input.value, dateInput.value, typeSelect.value as ChaosType);
         };
 
         input.addEventListener("keydown", (e) => {
             if (e.key === "Enter") {
-                const name = input.value.trim();
-                const date = dateInput.value || this.getDefaultDate();
-                const type = typeSelect.value as ChaosType;
-                if (name) {
-                    void this.createChaosElement(name, date, type).then(() => this.close());
-                } else {
-                    new Notice("Please enter a name");
-                }
+                void this.handleCreateSubmit(input.value, dateInput.value, typeSelect.value as ChaosType);
             }
         });
 
@@ -195,6 +193,21 @@ export class CreateChaosModal extends Modal {
         const date = new Date();
         date.setDate(date.getDate() + this.settings.defaultDueDateOffsetDays);
         return date.toISOString().split('T')[0];
+    }
+
+    async handleCreateSubmit(rawName: string, rawDate: string, type: ChaosType): Promise<void> {
+        const name = rawName.trim();
+        const date = rawDate || this.getDefaultDate();
+
+        if (!name) {
+            new Notice("Please enter a name.");
+            return;
+        }
+
+        const created = await this.createChaosElement(name, date, type);
+        if (created) {
+            this.close();
+        }
     }
 
     normalizeFolderPath(folder: string): string {
@@ -269,7 +282,7 @@ export class CreateChaosModal extends Modal {
         });
     }
 
-    async createChaosElement(name: string, date: string, type: ChaosType) {
+    async createChaosElement(name: string, date: string, type: ChaosType): Promise<boolean> {
         const folder = this.normalizeFolderPath(this.resolveFolderForType(type));
 
         let tags = ["chaos-element"];
@@ -295,7 +308,7 @@ export class CreateChaosModal extends Modal {
 
             const targetPath = await this.resolveTargetPath(name, folder);
             if (!targetPath) {
-                return;
+                return false;
             }
 
             const file = await this.app.vault.create(targetPath, content);
@@ -304,10 +317,12 @@ export class CreateChaosModal extends Modal {
                 await this.app.workspace.getLeaf(false).openFile(file);
             }
 
-            new Notice(`Created chaos ${type}: ${name} (Due: ${date})`);
+            new Notice(`Created chaos ${type}: ${name} (Due: ${date}).`);
+            return true;
         } catch (error: unknown) {
-            const message = error instanceof Error ? error.message : String(error);
-            new Notice(`Error creating file: ${message}`);
+            const message = formatErrorMessage(error);
+            new Notice(`Error creating file: ${message}.`);
+            return false;
         }
     }
 

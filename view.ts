@@ -4,6 +4,18 @@ import { CreateChaosModal, confirmAction } from './modals';
 
 export const VIEW_TYPE_CHAOS = "chaos-view";
 
+function formatErrorMessage(error: unknown): string {
+    if (error instanceof Error) return error.message;
+    if (typeof error === "string") return error;
+
+    try {
+        const serialized = JSON.stringify(error);
+        return serialized && serialized !== "{}" ? serialized : "Unknown error";
+    } catch {
+        return "Unknown error";
+    }
+}
+
 export class ChaosView extends ItemView {
     private getSettings: () => ChaosPluginSettings;
 
@@ -61,65 +73,90 @@ export class ChaosView extends ItemView {
     }
 
     async setChaosType(file: TFile, type: ChaosType) {
-        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-            if (!frontmatter.tags) frontmatter.tags = [];
-            if (!Array.isArray(frontmatter.tags)) frontmatter.tags = [frontmatter.tags];
+        try {
+            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                if (!frontmatter.tags) frontmatter.tags = [];
+                if (!Array.isArray(frontmatter.tags)) frontmatter.tags = [frontmatter.tags];
 
-            const typeTags = ["chaos-project", "chaos-task", "chaos-reminder", "chaos-event", "chaos-note"];
-            frontmatter.tags = frontmatter.tags.filter((t: string) => typeTags.indexOf(t) === -1 && typeTags.indexOf(t.replace("#", "")) === -1);
+                const typeTags = ["chaos-project", "chaos-task", "chaos-reminder", "chaos-event", "chaos-note"];
+                frontmatter.tags = frontmatter.tags.filter((t: string) => typeTags.indexOf(t) === -1 && typeTags.indexOf(t.replace("#", "")) === -1);
 
-            if (type !== "element") {
-                frontmatter.tags.push(`chaos-${type}`);
+                if (type !== "element") {
+                    frontmatter.tags.push(`chaos-${type}`);
+                }
+
+                // Kanban Integration
+                if (type === "project") {
+                    frontmatter["kanban-plugin"] = "basic";
+                }
+            });
+
+            // If it's a project, check if we need to add default Kanban structure
+            if (type === "project" && this.getSettings().includeProjectHeadings) {
+                const content = await this.app.vault.read(file);
+                // Check if file has any headings (simple check)
+                if (!content.match(/^##\s+/m)) {
+                    const kanbanStructure = `\n\n## To Do\n\n## In Progress\n\n## Done\n`;
+                    await this.app.vault.modify(file, content + kanbanStructure);
+                }
             }
 
-            // Kanban Integration
-            if (type === "project") {
-                frontmatter["kanban-plugin"] = "basic";
-            }
-        });
-
-        // If it's a project, check if we need to add default Kanban structure
-        if (type === "project" && this.getSettings().includeProjectHeadings) {
-            const content = await this.app.vault.read(file);
-            // Check if file has any headings (simple check)
-            if (!content.match(/^##\s+/m)) {
-                const kanbanStructure = `\n\n## To Do\n\n## In Progress\n\n## Done\n`;
-                await this.app.vault.modify(file, content + kanbanStructure);
-            }
+            new Notice(`Changed type to ${type}.`);
+        } catch (error: unknown) {
+            const message = formatErrorMessage(error);
+            new Notice(`Failed to change type: ${message}.`);
         }
-
-        new Notice(`Changed type to ${type}`);
     }
 
     async markDone(file: TFile) {
-        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-            if (!frontmatter.tags) frontmatter.tags = [];
-            if (!Array.isArray(frontmatter.tags)) frontmatter.tags = [frontmatter.tags];
-            frontmatter.tags.push("chaos-done");
-        });
-        new Notice(`Marked ${file.basename} as done`);
+        try {
+            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                if (!frontmatter.tags) frontmatter.tags = [];
+                if (!Array.isArray(frontmatter.tags)) frontmatter.tags = [frontmatter.tags];
+                frontmatter.tags.push("chaos-done");
+            });
+            new Notice(`Marked ${file.basename} as done.`);
+        } catch (error: unknown) {
+            const message = formatErrorMessage(error);
+            new Notice(`Failed to mark ${file.basename} as done: ${message}.`);
+        }
     }
 
     async deleteFile(file: TFile) {
-        await this.app.fileManager.trashFile(file);
-        new Notice(`Deleted ${file.basename}`);
+        try {
+            await this.app.fileManager.trashFile(file);
+            new Notice(`Deleted ${file.basename}.`);
+        } catch (error: unknown) {
+            const message = formatErrorMessage(error);
+            new Notice(`Failed to delete ${file.basename}: ${message}.`);
+        }
     }
 
     async deleteAllArchived() {
         const files = this.app.vault.getMarkdownFiles();
-        let count = 0;
+        let deletedCount = 0;
+        let failedCount = 0;
         for (const file of files) {
             const cache = this.app.metadataCache.getFileCache(file);
             const tags = (cache ? getAllTags(cache) : []) || [];
             if (tags.indexOf("#chaos-element") !== -1 && tags.indexOf("#chaos-done") !== -1) {
-                await this.app.fileManager.trashFile(file);
-                count++;
+                try {
+                    await this.app.fileManager.trashFile(file);
+                    deletedCount++;
+                } catch {
+                    failedCount++;
+                }
             }
         }
-        if (count > 0) {
-            new Notice(`Deleted ${count} archived elements.`);
-        } else {
+        if (deletedCount === 0 && failedCount === 0) {
             new Notice("No archived elements to delete.");
+            return;
+        }
+
+        if (failedCount > 0) {
+            new Notice(`Deleted ${deletedCount} archived elements. Failed to delete ${failedCount}.`);
+        } else {
+            new Notice(`Deleted ${deletedCount} archived elements.`);
         }
     }
 
@@ -290,12 +327,17 @@ export class ChaosView extends ItemView {
     }
 
     async restoreElement(file: TFile) {
-        await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
-            if (frontmatter.tags && Array.isArray(frontmatter.tags)) {
-                frontmatter.tags = frontmatter.tags.filter((t: string) => t !== "chaos-done");
-            }
-        });
-        new Notice(`Restored ${file.basename}`);
+        try {
+            await this.app.fileManager.processFrontMatter(file, (frontmatter) => {
+                if (frontmatter.tags && Array.isArray(frontmatter.tags)) {
+                    frontmatter.tags = frontmatter.tags.filter((t: string) => t !== "chaos-done");
+                }
+            });
+            new Notice(`Restored ${file.basename}.`);
+        } catch (error: unknown) {
+            const message = formatErrorMessage(error);
+            new Notice(`Failed to restore ${file.basename}: ${message}.`);
+        }
     }
 
     onClose(): Promise<void> {
